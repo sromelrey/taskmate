@@ -35,7 +35,7 @@ export const dbConfig = {
 
 // Database error types
 export class DatabaseError extends Error {
-  constructor(message: string, public code?: string, public details?: any) {
+  constructor(message: string, public code?: string, public details?: unknown) {
     super(message);
     this.name = "DatabaseError";
   }
@@ -58,7 +58,9 @@ export class AuthorizationError extends Error {
 // Utility functions for database operations
 export const dbUtils = {
   // Convert database row to Task with relations
-  mapTaskWithRelations: (row: any): any => ({
+  mapTaskWithRelations: (
+    row: Record<string, unknown>
+  ): Record<string, unknown> => ({
     id: row.id,
     title: row.title,
     description: row.description,
@@ -74,20 +76,20 @@ export const dbUtils = {
     updated_at: row.updated_at,
     assignee: row.assignee
       ? {
-          id: row.assignee.id,
-          name: row.assignee.name,
-          email: row.assignee.email,
-          avatar_url: row.assignee.avatar_url,
+          id: (row.assignee as Record<string, unknown>).id,
+          name: (row.assignee as Record<string, unknown>).name,
+          email: (row.assignee as Record<string, unknown>).email,
+          avatar_url: (row.assignee as Record<string, unknown>).avatar_url,
         }
       : undefined,
     tags: row.tags || [],
     board: row.board
       ? {
-          id: row.board.id,
-          name: row.board.name,
-          slug: row.board.slug,
-          color: row.board.color,
-          wip_limit: row.board.wip_limit,
+          id: (row.board as Record<string, unknown>).id,
+          name: (row.board as Record<string, unknown>).name,
+          slug: (row.board as Record<string, unknown>).slug,
+          color: (row.board as Record<string, unknown>).color,
+          wip_limit: (row.board as Record<string, unknown>).wip_limit,
         }
       : undefined,
   }),
@@ -100,12 +102,12 @@ export const dbUtils = {
   },
 
   // Sanitize input for database queries
-  sanitizeInput: (input: any): any => {
+  sanitizeInput: (input: unknown): unknown => {
     if (typeof input === "string") {
       return input.trim();
     }
     if (typeof input === "object" && input !== null) {
-      const sanitized: any = {};
+      const sanitized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(input)) {
         sanitized[key] = dbUtils.sanitizeInput(value);
       }
@@ -115,34 +117,43 @@ export const dbUtils = {
   },
 
   // Handle database errors
-  handleError: (error: any): never => {
+  handleError: (error: unknown): never => {
     console.error("Database error:", error);
 
-    if (error.code === "23505") {
-      throw new DatabaseError("Duplicate entry", error.code, error.details);
+    const dbError = error as Record<string, unknown>;
+
+    if (dbError.code === "23505") {
+      throw new DatabaseError(
+        "Duplicate entry",
+        dbError.code as string,
+        dbError.details
+      );
     }
-    if (error.code === "23503") {
+    if (dbError.code === "23503") {
       throw new DatabaseError(
         "Foreign key constraint violation",
-        error.code,
-        error.details
+        dbError.code as string,
+        dbError.details
       );
     }
-    if (error.code === "23514") {
+    if (dbError.code === "23514") {
       throw new DatabaseError(
         "Check constraint violation",
-        error.code,
-        error.details
+        dbError.code as string,
+        dbError.details
       );
     }
-    if (error.message?.includes("WIP limit")) {
-      throw new ValidationError(error.message);
+    if (
+      typeof dbError.message === "string" &&
+      dbError.message.includes("WIP limit")
+    ) {
+      throw new ValidationError(dbError.message);
     }
 
     throw new DatabaseError(
       "Database operation failed",
-      error.code,
-      error.details
+      dbError.code as string,
+      dbError.details
     );
   },
 };
@@ -164,16 +175,22 @@ export async function checkDatabaseConnection(): Promise<boolean> {
 }
 
 // Database query helper with retry logic
-export async function query(text: string, params?: any[]): Promise<any> {
+export async function query(
+  text: string,
+  params?: unknown[]
+): Promise<{ rows: unknown[]; rowCount: number }> {
   let retries = 3;
-  let lastError: any;
+  let lastError: unknown;
 
   while (retries > 0) {
     let client;
     try {
       client = await pool.connect();
       const result = await client.query(text, params);
-      return result;
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount || 0,
+      };
     } catch (error) {
       lastError = error;
       console.error(`Database query error (${4 - retries}/3):`, error);

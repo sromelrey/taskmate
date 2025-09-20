@@ -1,16 +1,12 @@
 "use server";
 
 import { 
-  Task, 
   User, 
-  Board, 
   Tag, 
   CreateTaskData, 
   UpdateTaskData, 
-  CreateTagData,
   TaskWithRelations,
-  BoardWithTasks,
-  WipLimitResult 
+  BoardWithTasks
 } from './types';
 
 // Mock data for development when database is not available
@@ -108,7 +104,7 @@ const mockTags: Tag[] = [
 ];
 
 // In-memory storage for development
-let mockTasks: TaskWithRelations[] = [
+const mockTasks: TaskWithRelations[] = [
   {
     id: "task-1",
     title: "Set up database schema",

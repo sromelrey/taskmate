@@ -6,7 +6,7 @@ import { cleanupOldDoneTasks, getCleanupStats } from "@/lib/cleanup-actions";
 export async function GET(request: NextRequest) {
   try {
     // Get session ID from cookies
-    const sessionId = getSessionIdFromCookies(request.cookies);
+    const sessionId = getSessionIdFromCookies(request.headers.get("cookie"));
     if (!sessionId) {
       return NextResponse.json({ error: "No session found" }, { status: 401 });
     }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Get session ID from cookies
-    const sessionId = getSessionIdFromCookies(request.cookies);
+    const sessionId = getSessionIdFromCookies(request.headers.get("cookie"));
     if (!sessionId) {
       return NextResponse.json({ error: "No session found" }, { status: 401 });
     }

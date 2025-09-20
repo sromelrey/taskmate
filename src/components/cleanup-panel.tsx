@@ -83,15 +83,6 @@ export function CleanupPanel() {
     fetchStats();
   }, []);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const getTimeAgo = (dateString: string) => {
     const now = new Date();
@@ -135,7 +126,7 @@ export function CleanupPanel() {
           Auto Cleanup
         </CardTitle>
         <CardDescription>
-          Tasks in the "Done" board are automatically deleted after 48 hours to
+          Tasks in the &quot;Done&quot; board are automatically deleted after 48 hours to
           keep your workspace clean.
         </CardDescription>
       </CardHeader>
@@ -213,7 +204,7 @@ export function CleanupPanel() {
               <p className='font-medium'>Automatic Cleanup Schedule:</p>
               <p>• Runs daily at 2:00 AM UTC</p>
               <p>• Deletes tasks completed more than 48 hours ago</p>
-              <p>• Only affects tasks in the "Done" board</p>
+              <p>• Only affects tasks in the &quot;Done&quot; board</p>
             </div>
           </div>
         </div>

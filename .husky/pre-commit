@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run TypeScript type checking
+echo "🔍 Running TypeScript type checking..."
+pnpm run type-check || (echo "" && echo "🚨 ERROR: TypeScript errors found!" && echo "📝 Please fix all TypeScript errors before committing." && echo "💡 Run 'pnpm run type-check' to see detailed error messages." && echo "" && exit 1)
+
+# Run ESLint
+echo "🔍 Running ESLint..."
+pnpm run lint || (echo "" && echo "🚨 ERROR: ESLint errors found!" && echo "📝 Please fix all linting errors before committing." && echo "💡 Run 'pnpm run lint' to see detailed error messages." && echo "" && exit 1)
+
+echo "✅ All checks passed! Proceeding with commit..."

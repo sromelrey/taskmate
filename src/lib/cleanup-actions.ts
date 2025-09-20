@@ -1,14 +1,10 @@
 "use server";
 
 import {
-  pool,
   query,
   dbUtils,
-  DatabaseError,
-  ValidationError,
   AuthorizationError,
 } from "./database";
-import { withAuth } from "./auth-middleware";
 
 // =============================================
 // CLEANUP OPERATIONS

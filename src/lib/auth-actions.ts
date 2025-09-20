@@ -1,7 +1,6 @@
 "use server";
 
 import { query } from "./database";
-import { DatabaseError, AuthorizationError } from "./database";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 
@@ -61,6 +60,7 @@ export async function loginUser(
     sessions.set(sessionId, { userId: user.id, expires });
 
     // Return user without password
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...userWithoutPassword } = user;
 
     return {

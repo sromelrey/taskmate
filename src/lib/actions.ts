@@ -1,26 +1,19 @@
 "use server";
 
 import {
-  pool,
   query,
   withTransaction,
   dbUtils,
-  DatabaseError,
   ValidationError,
   AuthorizationError,
 } from "./database";
-import { withAuth } from "./auth-middleware";
 import {
-  Task,
   User,
-  Board,
   Tag,
   CreateTaskData,
   UpdateTaskData,
-  CreateTagData,
   TaskWithRelations,
   BoardWithTasks,
-  WipLimitResult,
 } from "./types";
 
 // =============================================
@@ -127,7 +120,7 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
       [projectId]
     );
 
-    return boardsResult.rows.map((row: any) => ({
+    return boardsResult.rows.map((row: Record<string, unknown>) => ({
       ...row,
       tasks: row.tasks || [],
       taskCount: row.tasks?.length || 0,
@@ -180,7 +173,7 @@ export async function getTasks(boardId?: string): Promise<TaskWithRelations[]> {
 
     const result = await query(sql, params);
 
-    return result.rows.map((row: any) => ({
+    return result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       title: row.title,
       description: row.description,
@@ -429,7 +422,7 @@ export async function updateTask(
       updateFields.push(`updated_at = NOW()`);
       values.push(taskId);
 
-      const updateResult = await client.query(
+      await client.query(
         `UPDATE tasks SET ${updateFields.join(
           ", "
         )} WHERE id = $${paramCount} RETURNING *`,

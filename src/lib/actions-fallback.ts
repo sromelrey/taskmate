@@ -1,7 +1,7 @@
 "use server";
 
 // Fallback actions using mock data when database is unavailable
-import { TaskWithRelations, BoardWithTasks, User, Tag } from "./types";
+import { TaskWithRelations, BoardWithTasks, User, Tag, CreateTaskData, UpdateTaskData } from "./types";
 
 // Mock data for fallback
 const mockUser: User = {
@@ -22,7 +22,7 @@ const mockBoards: BoardWithTasks[] = [
     description: "Ideas and future tasks",
     project_id: "550e8400-e29b-41d4-a716-446655440001",
     position: 0,
-    wip_limit: null,
+    wip_limit: undefined,
     color: "#8B5CF6",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -38,7 +38,7 @@ const mockBoards: BoardWithTasks[] = [
         due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         position: 1,
         estimated_hours: 4,
-        actual_hours: null,
+        actual_hours: undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         assignee: mockUser,
@@ -47,15 +47,20 @@ const mockBoards: BoardWithTasks[] = [
             id: "550e8400-e29b-41d4-a716-446655440006",
             name: "frontend",
             color: "#3B82F6",
+            project_id: "550e8400-e29b-41d4-a716-446655440001",
+            created_at: new Date().toISOString(),
           },
           {
             id: "550e8400-e29b-41d4-a716-446655440007",
             name: "backend",
             color: "#10B981",
+            project_id: "550e8400-e29b-41d4-a716-446655440001",
+            created_at: new Date().toISOString(),
           },
         ],
       },
     ],
+    taskCount: 1,
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440003",
@@ -64,7 +69,7 @@ const mockBoards: BoardWithTasks[] = [
     description: "Tasks ready to be worked on",
     project_id: "550e8400-e29b-41d4-a716-446655440001",
     position: 1,
-    wip_limit: null,
+    wip_limit: undefined,
     color: "#6B7280",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -80,7 +85,7 @@ const mockBoards: BoardWithTasks[] = [
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         position: 1,
         estimated_hours: 2,
-        actual_hours: null,
+        actual_hours: undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         assignee: mockUser,
@@ -89,10 +94,13 @@ const mockBoards: BoardWithTasks[] = [
             id: "550e8400-e29b-41d4-a716-446655440007",
             name: "backend",
             color: "#10B981",
+            project_id: "550e8400-e29b-41d4-a716-446655440001",
+            created_at: new Date().toISOString(),
           },
         ],
       },
     ],
+    taskCount: 1,
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440004",
@@ -106,6 +114,7 @@ const mockBoards: BoardWithTasks[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     tasks: [],
+    taskCount: 0,
   },
   {
     id: "550e8400-e29b-41d4-a716-446655440005",
@@ -114,7 +123,7 @@ const mockBoards: BoardWithTasks[] = [
     description: "Completed tasks",
     project_id: "550e8400-e29b-41d4-a716-446655440001",
     position: 3,
-    wip_limit: null,
+    wip_limit: undefined,
     color: "#10B981",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -139,15 +148,20 @@ const mockBoards: BoardWithTasks[] = [
             id: "550e8400-e29b-41d4-a716-446655440006",
             name: "frontend",
             color: "#3B82F6",
+            project_id: "550e8400-e29b-41d4-a716-446655440001",
+            created_at: new Date().toISOString(),
           },
           {
             id: "550e8400-e29b-41d4-a716-446655440010",
             name: "feature",
             color: "#8B5CF6",
+            project_id: "550e8400-e29b-41d4-a716-446655440001",
+            created_at: new Date().toISOString(),
           },
         ],
       },
     ],
+    taskCount: 1,
   },
 ];
 
@@ -214,24 +228,43 @@ export async function getTags(): Promise<Tag[]> {
   return mockTags;
 }
 
-export async function createTask(taskData: any): Promise<any> {
+export async function createTask(taskData: CreateTaskData): Promise<TaskWithRelations> {
   console.log("Using fallback mock data for createTask");
-  const newTask = {
+  const newTask: TaskWithRelations = {
     id: `mock-${Date.now()}`,
     ...taskData,
     creator_id: mockUser.id,
+    position: 0,
+    actual_hours: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    tags: [],
+    assignee: undefined,
+    board: undefined,
   };
   return newTask;
 }
 
-export async function updateTask(taskId: string, taskData: any): Promise<any> {
+export async function updateTask(taskId: string, taskData: UpdateTaskData): Promise<TaskWithRelations> {
   console.log("Using fallback mock data for updateTask");
   return {
     id: taskId,
-    ...taskData,
+    title: "Updated Task",
+    description: "",
+    board_id: "mock-board",
+    assignee_id: undefined,
+    creator_id: mockUser.id,
+    priority: "medium",
+    due_date: undefined,
+    position: 0,
+    estimated_hours: undefined,
+    actual_hours: undefined,
+    created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    tags: [],
+    assignee: undefined,
+    board: undefined,
+    ...taskData,
   };
 }
 

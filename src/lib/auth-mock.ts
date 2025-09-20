@@ -43,7 +43,7 @@ export async function loginUser(
       success: false,
       error: "Email and password are required",
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: "Login failed",
@@ -79,7 +79,7 @@ export async function registerUser(
       success: false,
       error: "Email, password, and name are required",
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: "Registration failed",
@@ -98,7 +98,7 @@ export async function getCurrentUserFromSession(
     }
 
     return mockUser;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

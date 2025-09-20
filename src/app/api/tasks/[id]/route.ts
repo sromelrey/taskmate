@@ -5,7 +5,7 @@ import { getCurrentUserFromSession } from "@/lib/auth-actions";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const sessionId = getSessionIdFromCookies(request.headers.get("cookie"));
@@ -19,8 +19,9 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
+    const { id } = await params;
     const taskData = await request.json();
-    const updatedTask = await updateTask(params.id, taskData);
+    const updatedTask = await updateTask(id, taskData);
 
     return NextResponse.json(updatedTask);
   } catch (error) {
@@ -34,7 +35,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const sessionId = getSessionIdFromCookies(request.headers.get("cookie"));
@@ -48,7 +49,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    await deleteTask(params.id);
+    const { id } = await params;
+    await deleteTask(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

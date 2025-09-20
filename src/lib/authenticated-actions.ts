@@ -1,26 +1,19 @@
 "use server";
 
 import {
-  pool,
   query,
   withTransaction,
   dbUtils,
-  DatabaseError,
   ValidationError,
   AuthorizationError,
 } from "./database";
-import { withAuth } from "./auth-middleware";
 import {
-  Task,
   User,
-  Board,
   Tag,
   CreateTaskData,
   UpdateTaskData,
-  CreateTagData,
   TaskWithRelations,
   BoardWithTasks,
-  WipLimitResult,
 } from "./types";
 
 // =============================================
@@ -94,7 +87,7 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
         [projectId]
       );
 
-      return boardsResult.rows.map((row: any) => ({
+      return boardsResult.rows.map((row: Record<string, unknown>) => ({
         ...row,
         tasks: row.tasks || [],
       }));
@@ -137,7 +130,7 @@ export async function getTasks(): Promise<TaskWithRelations[]> {
         [user.id]
       );
 
-      return result.rows.map((row: any) => ({
+      return result.rows.map((row: Record<string, unknown>) => ({
         id: row.id,
         title: row.title,
         description: row.description,
@@ -340,7 +333,7 @@ export async function updateTask(
 
         // Build dynamic update query
         const updateFields: string[] = [];
-        const updateValues: any[] = [];
+        const updateValues: unknown[] = [];
         let paramIndex = 1;
 
         const allowedFields = [
@@ -379,8 +372,7 @@ export async function updateTask(
           RETURNING *
         `;
 
-        const result = await client.query(updateQuery, updateValues);
-        const task = result.rows[0];
+        await client.query(updateQuery, updateValues);
 
         // Update task tags if provided
         if (taskData.tag_ids !== undefined) {
