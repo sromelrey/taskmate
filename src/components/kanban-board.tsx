@@ -1,123 +1,179 @@
 "use client";
 
-import { useTaskStore, Task } from "@/lib/store";
+import { TaskWithRelations, BoardWithTasks } from "@/lib/types";
 import { TaskCard } from "./task-card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-} from "@dnd-kit/core";
+import { Plus, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { useTaskStore } from "@/lib/store";
+import { useMobileLayout } from "@/hooks/useMobileLayout";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import { useBoardConfig } from "@/hooks/useBoardConfig";
 
 interface KanbanColumnProps {
-  title: string;
-  status: Task["status"];
-  tasks: Task[];
+  board: BoardWithTasks;
   onAddTask: () => void;
-  onEditTask: (task: Task) => void;
-  onDeleteTask: (id: number) => void;
+  onEditTask: (task: TaskWithRelations) => void;
+  onDeleteTask: (id: string) => void;
+  isExpanded?: boolean;
+  onToggle?: () => void;
+  isMobile?: boolean;
+  isDragOver?: boolean;
 }
 
-const statusConfig = {
-  todo: {
-    title: "To Do",
-    color: "bg-gray-50 border-gray-200",
-    headerColor: "bg-gray-100",
-  },
-  in_progress: {
-    title: "In Progress",
-    color: "bg-blue-50 border-blue-200",
-    headerColor: "bg-blue-100",
-  },
-  done: {
-    title: "Done",
-    color: "bg-green-50 border-green-200",
-    headerColor: "bg-green-100",
-  },
-};
-
 function KanbanColumn({
-  title,
-  status,
-  tasks,
+  board,
   onAddTask,
   onEditTask,
   onDeleteTask,
+  isExpanded = true,
+  onToggle,
+  isMobile = false,
+  isDragOver = false,
 }: KanbanColumnProps) {
-  const taskIds = tasks.map((task) => task.id.toString());
+  const { getBoardConfig, getWipStatus } = useBoardConfig();
+  const { getFilteredAndSortedTasks } = useTaskStore();
+  const config = getBoardConfig(board.slug);
+  const { isWipLimitReached, isOverWipLimit } = getWipStatus(board);
+
+  // Get filtered and sorted tasks for this board
+  const filteredTasks = getFilteredAndSortedTasks(board.id);
+  const taskIds = filteredTasks.map((task) => task.id);
   const { setNodeRef } = useDroppable({
-    id: status,
+    id: board.id,
   });
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex-1 min-w-80 rounded-lg border-2 ${statusConfig[status].color}`}
+      className={`${
+        isMobile ? "w-full mb-4" : "flex-1 min-w-80"
+      } rounded-lg border-2 ${config.color} ${
+        isOverWipLimit ? "border-red-300" : ""
+      } ${
+        isDragOver ? "border-blue-400 bg-blue-50 scale-105 shadow-lg" : ""
+      } transition-all duration-200`}
     >
-      <div className={`p-4 rounded-t-lg ${statusConfig[status].headerColor}`}>
+      <div
+        className={`p-4 rounded-t-lg ${config.headerColor} ${
+          isMobile ? "cursor-pointer" : ""
+        }`}
+        onClick={isMobile ? onToggle : undefined}
+      >
         <div className='flex items-center justify-between'>
-          <h3 className='font-semibold text-gray-800'>{title}</h3>
+          <div className='flex items-center gap-2'>
+            {isMobile && (
+              <div className='text-gray-600'>
+                {isExpanded ? (
+                  <ChevronDown className='h-4 w-4' />
+                ) : (
+                  <ChevronRight className='h-4 w-4' />
+                )}
+              </div>
+            )}
+            <h3 className={`font-semibold ${config.textColor}`}>
+              {board.name}
+            </h3>
+            {board.wip_limit && (
+              <Badge
+                variant={isWipLimitReached ? "destructive" : "secondary"}
+                className='text-xs'
+              >
+                {filteredTasks.length}/{board.wip_limit}
+              </Badge>
+            )}
+          </div>
           <div className='flex items-center gap-2'>
             <span className='text-sm text-gray-600 bg-white px-2 py-1 rounded-full'>
-              {tasks.length}
+              {filteredTasks.length}
             </span>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={onAddTask}
-              className='h-6 w-6 p-0 hover:bg-white/50'
-            >
-              <Plus className='h-3 w-3' />
-            </Button>
+            {!isMobile && (
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={onAddTask}
+                className='h-6 w-6 p-0 hover:bg-white/50'
+                disabled={isWipLimitReached}
+              >
+                <Plus className='h-3 w-3' />
+              </Button>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className='p-4 space-y-3 min-h-96'>
-        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onEdit={onEditTask}
-              onDelete={onDeleteTask}
-            />
-          ))}
-        </SortableContext>
-
-        {tasks.length === 0 && (
-          <div className='text-center py-8 text-gray-500'>
-            <p className='text-sm'>No tasks yet</p>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={onAddTask}
-              className='mt-2 text-xs'
-            >
-              Add your first task
-            </Button>
+        {/* WIP Limit Warning */}
+        {isWipLimitReached && (
+          <div className='mt-2 flex items-center gap-1 text-xs text-red-600'>
+            <AlertCircle className='h-3 w-3' />
+            <span>WIP limit reached</span>
           </div>
         )}
       </div>
+
+      {/* Tasks Container - Only show when expanded on mobile */}
+      {(!isMobile || isExpanded) && (
+        <>
+          <div className='p-4 space-y-3 min-h-96'>
+            <SortableContext
+              items={taskIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {filteredTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={onEditTask}
+                  onDelete={onDeleteTask}
+                />
+              ))}
+            </SortableContext>
+
+            {filteredTasks.length === 0 && (
+              <div className='text-center py-8 text-gray-500'>
+                <p className='text-sm'>No tasks yet</p>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={onAddTask}
+                  className='mt-2 text-xs'
+                  disabled={isWipLimitReached}
+                >
+                  Add your first task
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Add Task Button */}
+          {isMobile && filteredTasks.length > 0 && (
+            <div className='p-4 border-t border-gray-200'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={onAddTask}
+                className='w-full'
+                disabled={isWipLimitReached}
+              >
+                <Plus className='h-4 w-4 mr-2' />
+                Add Task
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 interface KanbanBoardProps {
-  onAddTask: (status?: Task["status"]) => void;
-  onEditTask: (task: Task) => void;
-  onDeleteTask: (id: number) => void;
+  onAddTask: (boardId: string) => void;
+  onEditTask: (task: TaskWithRelations) => void;
+  onDeleteTask: (id: string) => void;
 }
 
 export function KanbanBoard({
@@ -125,79 +181,53 @@ export function KanbanBoard({
   onEditTask,
   onDeleteTask,
 }: KanbanBoardProps) {
-  const { tasks, moveTask } = useTaskStore();
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const { boards } = useTaskStore();
+  const { isMobile, handleToggleBoard, isBoardExpanded } =
+    useMobileLayout(boards);
+  const {
+    sensors,
+    activeTask,
+    overId,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+  } = useDragAndDrop(boards);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
-  const todoTasks = tasks.filter((task) => task.status === "todo");
-  const inProgressTasks = tasks.filter((task) => task.status === "in_progress");
-  const doneTasks = tasks.filter((task) => task.status === "done");
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = tasks.find((t) => t.id.toString() === active.id);
-    setActiveTask(task || null);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
-
-    if (!over) return;
-
-    const taskId = parseInt(active.id as string);
-    const newStatus = over.id as Task["status"];
-
-    if (newStatus && ["todo", "in_progress", "done"].includes(newStatus)) {
-      moveTask(taskId, newStatus as Task["status"]);
-    }
-  };
+  // Sort boards by position
+  const sortedBoards = [...boards].sort((a, b) => a.position - b.position);
 
   return (
     <DndContext
       sensors={sensors}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className='flex gap-6 p-6 min-h-screen bg-gray-50'>
-        <KanbanColumn
-          title='To Do'
-          status='todo'
-          tasks={todoTasks}
-          onAddTask={() => onAddTask("todo")}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-        />
-
-        <KanbanColumn
-          title='In Progress'
-          status='in_progress'
-          tasks={inProgressTasks}
-          onAddTask={() => onAddTask("in_progress")}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-        />
-
-        <KanbanColumn
-          title='Done'
-          status='done'
-          tasks={doneTasks}
-          onAddTask={() => onAddTask("done")}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-        />
+      <div
+        className={`${
+          isMobile
+            ? "flex flex-col p-4 min-h-screen bg-gray-50"
+            : "flex gap-6 p-6 min-h-screen bg-gray-50 overflow-x-auto"
+        }`}
+      >
+        {sortedBoards.map((board) => (
+          <KanbanColumn
+            key={board.id}
+            board={board}
+            onAddTask={() => onAddTask(board.id)}
+            onEditTask={onEditTask}
+            onDeleteTask={onDeleteTask}
+            isExpanded={isBoardExpanded(board.id)}
+            onToggle={() => handleToggleBoard(board.id)}
+            isMobile={isMobile}
+            isDragOver={overId === board.id}
+          />
+        ))}
       </div>
 
       <DragOverlay>
         {activeTask ? (
-          <div className='rotate-3 opacity-90'>
+          <div className='rotate-3 opacity-90 scale-105 shadow-2xl border-2 border-blue-400 bg-white rounded-lg'>
             <TaskCard task={activeTask} onEdit={() => {}} onDelete={() => {}} />
           </div>
         ) : null}

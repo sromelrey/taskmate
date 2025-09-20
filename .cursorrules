@@ -1,0 +1,235 @@
+# Cursor Rules for Next.js + Neon Postgres Project
+
+## Project Overview
+
+This is a Next.js 14+ project using the App Router with Neon Postgres database, focusing on secure data handling, server actions, and modern React patterns.
+
+## Core Technologies
+
+- **Framework**: Next.js 14+ with App Router
+- **Database**: Neon Postgres with Row-Level Security (RLS)
+- **Authentication**: Neon Auth (when applicable)
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **TypeScript**: Strict mode enabled
+
+## File Structure & Conventions
+
+### App Router Structure
+
+- Use `src/app/` for all routes and layouts
+- Server Components by default, add `"use client"` only when necessary
+- Use `route.ts` files for API endpoints
+- Implement proper error boundaries with `error.tsx`
+- Use `loading.tsx` for loading states
+
+### Component Organization
+
+- Place reusable UI components in `src/components/ui/`
+- Feature-specific components in `src/components/`
+- Use shadcn/ui components as base building blocks
+- Follow atomic design principles
+
+### Data Layer
+
+- Keep all database logic in `src/lib/` directory
+- Use Server Actions for mutations (not API routes)
+- Implement proper data validation and sanitization
+- Never import database packages outside the Data Access Layer
+
+## Security Best Practices
+
+### Row-Level Security (RLS)
+
+- **ALWAYS** implement RLS policies for all tables
+- Use Drizzle ORM for RLS policy definitions when possible
+- Ensure users can only access their own data
+- Validate user authorization in Server Actions
+
+```typescript
+// Example RLS policy pattern
+crudPolicy({
+  role: authenticatedRole,
+  read: authUid(table.ownerId),
+  modify: authUid(table.ownerId),
+});
+```
+
+### Server Actions Security
+
+- Validate all input parameters in Server Actions
+- Re-authorize users inside actions
+- Use proper TypeScript types for action parameters
+- Implement proper error handling
+
+```typescript
+// Example Server Action pattern
+"use server";
+export async function updateTask(formData: FormData) {
+  // Validate input
+  const taskId = formData.get("taskId") as string;
+  if (!taskId) throw new Error("Task ID required");
+
+  // Re-authorize user
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Perform database operation
+  // ...
+}
+```
+
+### Data Access Layer
+
+- Isolate all database operations in dedicated files
+- Never import database packages outside this layer
+- Use environment variables for database connections
+- Implement proper connection pooling
+
+## Component Patterns
+
+### Server vs Client Components
+
+- Default to Server Components for better performance
+- Use Client Components only for:
+  - Interactive features (onClick, onChange)
+  - Browser-only APIs
+  - State management
+  - Event listeners
+
+### Form Handling
+
+- Use Server Actions for form submissions
+- Implement proper form validation
+- Use `useFormStatus` for loading states
+- Handle errors gracefully
+
+```typescript
+// Example form with Server Action
+export default function TaskForm() {
+  return (
+    <form action={createTask}>
+      <input name='title' required />
+      <button type='submit'>Create Task</button>
+    </form>
+  );
+}
+```
+
+## Database Patterns
+
+### CRUD Operations
+
+- Use PostgREST patterns for efficient queries
+- Chain methods for complex queries
+- Fetch related data in single queries when possible
+- Implement proper error handling
+
+```typescript
+// Example: Insert and fetch related data
+const { data, error } = await postgrest
+  .from("tasks")
+  .insert({ title: "New Task" })
+  .select("id, title, created_at, subtasks (id, content)")
+  .single();
+```
+
+### Query Optimization
+
+- Use `.select()` to limit returned fields
+- Implement proper indexing
+- Use `.eq()` for filtering
+- Order results appropriately
+
+## Performance Considerations
+
+### Caching
+
+- Leverage Next.js built-in caching
+- Use `revalidateTag` and `revalidatePath` appropriately
+- Implement proper cache invalidation strategies
+- Consider static generation for public content
+
+### Bundle Optimization
+
+- Use dynamic imports for large components
+- Implement code splitting
+- Optimize images with Next.js Image component
+- Minimize client-side JavaScript
+
+## Error Handling
+
+### Server Actions
+
+- Always return proper error responses
+- Log errors appropriately
+- Provide user-friendly error messages
+- Implement retry mechanisms where appropriate
+
+### Database Operations
+
+- Handle connection errors gracefully
+- Implement proper transaction handling
+- Use try-catch blocks for all database operations
+- Provide meaningful error messages
+
+## Development Guidelines
+
+### TypeScript
+
+- Use strict TypeScript configuration
+- Define proper interfaces for all data structures
+- Use type guards for runtime validation
+- Avoid `any` types
+
+### Code Quality
+
+- Follow ESLint rules strictly
+- Use Prettier for consistent formatting
+- Implement proper testing strategies
+- Write self-documenting code
+
+### Environment Variables
+
+- Use `.env.local` for local development
+- Never commit sensitive environment variables
+- Use proper validation for environment variables
+- Document required environment variables
+
+## Common Patterns to Avoid
+
+### Security Anti-patterns
+
+- Never trust client-side data
+- Don't bypass RLS policies
+- Avoid exposing sensitive data in client components
+- Don't use API routes for simple mutations
+
+### Performance Anti-patterns
+
+- Avoid unnecessary client components
+- Don't fetch data in client components when possible
+- Avoid large bundle sizes
+- Don't ignore caching opportunities
+
+## Testing Strategy
+
+- Write unit tests for utility functions
+- Test Server Actions thoroughly
+- Implement integration tests for database operations
+- Use proper mocking for external dependencies
+
+## Deployment Considerations
+
+- Configure proper environment variables
+- Set up database migrations
+- Implement proper monitoring
+- Use Neon's branching for staging environments
+
+## Documentation
+
+- Document all Server Actions
+- Explain complex database queries
+- Maintain API documentation
+- Keep README updated with setup instructions
+
+Remember: Security first, performance second, developer experience third. Always validate input, authorize users, and protect data at the database level with RLS policies.

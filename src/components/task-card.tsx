@@ -1,6 +1,6 @@
 "use client";
 
-import { Task } from "@/lib/store";
+import { TaskWithRelations } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Clock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,9 +23,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface TaskCardProps {
-  task: Task;
-  onEdit: (task: Task) => void;
-  onDelete: (id: number) => void;
+  task: TaskWithRelations;
+  onEdit: (task: TaskWithRelations) => void;
+  onDelete: (id: string) => void;
 }
 
 const priorityColors = {
@@ -122,7 +123,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
           {task.assignee && (
             <div className='flex items-center gap-1 text-xs text-gray-500'>
               <User className='h-3 w-3' />
-              <span className='truncate'>{task.assignee}</span>
+              <span className='truncate'>{task.assignee.name}</span>
             </div>
           )}
 
@@ -141,14 +142,26 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               </span>
             </div>
           )}
+
+          {task.estimated_hours && (
+            <div className='flex items-center gap-1 text-xs text-gray-500'>
+              <Clock className='h-3 w-3' />
+              <span>{task.estimated_hours}h</span>
+            </div>
+          )}
         </div>
 
-        {task.tags.length > 0 && (
+        {task.tags && task.tags.length > 0 && (
           <div className='flex items-center gap-1 flex-wrap'>
             <Tag className='h-3 w-3 text-gray-400' />
             {task.tags.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant='outline' className='text-xs px-1 py-0'>
-                {tag}
+              <Badge 
+                key={tag.id} 
+                variant='outline' 
+                className='text-xs px-1 py-0'
+                style={{ borderColor: tag.color, color: tag.color }}
+              >
+                {tag.name}
               </Badge>
             ))}
             {task.tags.length > 2 && (

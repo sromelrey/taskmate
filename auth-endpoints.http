@@ -1,0 +1,110 @@
+### TaskMate Authentication API Tests
+### Use with HTTPYac extension in VS Code
+
+@baseUrl = http://localhost:3000
+@email = admin@gmail.com
+@password = password123
+
+### 1. Test Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 2. Test Login with wrong credentials
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "wrong@example.com",
+  "password": "wrongpassword"
+}
+
+### 3. Test Get Current User (without session - should fail)
+GET {{baseUrl}}/api/auth/me
+
+### 4. Test Get Current User (with session - copy session cookie from login response)
+GET {{baseUrl}}/api/auth/me
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 5. Test Registration
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "password123",
+  "name": "New User"
+}
+
+### 6. Test Logout (with session)
+POST {{baseUrl}}/api/auth/logout
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 7. Test Get Current User after logout (should fail)
+GET {{baseUrl}}/api/auth/me
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 8. Test Login with different user
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "password123"
+}
+
+### 9. Test Get Boards (requires authentication)
+GET {{baseUrl}}/api/boards
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 10. Test Get Tasks (requires authentication)
+GET {{baseUrl}}/api/tasks
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 11. Test Get Users (requires authentication)
+GET {{baseUrl}}/api/users
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 12. Test Get Tags (requires authentication)
+GET {{baseUrl}}/api/tags
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### 13. Test Create Task (requires authentication)
+POST {{baseUrl}}/api/tasks
+Content-Type: application/json
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+{
+  "title": "Test Task from HTTP",
+  "description": "This task was created via HTTP request",
+  "board_id": "550e8400-e29b-41d4-a716-446655440003",
+  "priority": "medium",
+  "estimated_hours": 2,
+  "tag_ids": ["550e8400-e29b-41d4-a716-446655440006"]
+}
+
+### 14. Test Update Task (requires authentication)
+PUT {{baseUrl}}/api/tasks/550e8400-e29b-41d4-a716-446655440011
+Content-Type: application/json
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+{
+  "title": "Updated Task Title",
+  "description": "This task was updated via HTTP request",
+  "priority": "high"
+}
+
+### 15. Test Delete Task (requires authentication)
+DELETE {{baseUrl}}/api/tasks/550e8400-e29b-41d4-a716-446655440011
+Cookie: taskmate-session=YOUR_SESSION_ID_HERE
+
+### Instructions:
+### 1. Run the login request first
+### 2. Copy the session ID from the Set-Cookie header in the response
+### 3. Replace "YOUR_SESSION_ID_HERE" with the actual session ID
+### 4. Run the other requests to test session management
+### 5. Use the board IDs and task IDs from the GET responses for POST/PUT/DELETE requests

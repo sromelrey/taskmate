@@ -1,100 +1,43 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
-import { useTaskStore } from "@/lib/store";
 import { KanbanBoard } from "@/components/kanban-board";
 import { TaskModal } from "@/components/task-modal";
+import { CleanupPanel } from "@/components/cleanup-panel";
+import { TaskFilters } from "@/components/task-filters";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import {
-  getTasks,
-  getUsers,
-  getTags,
-  createTask,
-  updateTask,
-  deleteTask,
-} from "@/lib/actions";
+import { LogOut, Plus, Settings, Filter } from "lucide-react";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { useAuth } from "@/lib/auth-context";
+import { useTaskMateApp } from "@/hooks/useTaskMateApp";
+import { useTaskStore } from "@/lib/store";
+import { useState } from "react";
 
-export default function Home() {
+function TaskMateApp() {
+  const { user, logout } = useAuth();
+  const [showCleanupPanel, setShowCleanupPanel] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const {
-    users,
+    boards,
     tags,
-    setTasks,
-    setUsers,
-    setTags,
-    addTask,
-    updateTask: updateTaskStore,
-    deleteTask: deleteTaskStore,
+    isModalOpen,
+    editingTask,
+    isLoading,
+    handleAddTask,
+    handleEditTask,
+    handleSaveTask,
+    handleDeleteTask,
+    handleCloseModal,
+  } = useTaskMateApp();
+
+  const {
+    filters,
+    isFiltersExpanded,
+    setFilters,
+    clearFilters,
+    toggleFiltersExpanded,
   } = useTaskStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [tasksData, usersData, tagsData] = await Promise.all([
-          getTasks(),
-          getUsers(),
-          getTags(),
-        ]);
-
-        setTasks(tasksData);
-        setUsers(usersData);
-        setTags(tagsData);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [setTasks, setUsers, setTags]);
-
-  const handleAddTask = (status?: any) => {
-    setEditingTask({ status: status || "todo" });
-    setIsModalOpen(true);
-  };
-
-  const handleEditTask = (task: any) => {
-    setEditingTask(task);
-    setIsModalOpen(true);
-  };
-
-  const handleSaveTask = async (taskData: any) => {
-    try {
-      if (editingTask && editingTask.id) {
-        // Update existing task
-        const updatedTask = await updateTask(editingTask.id, taskData);
-        updateTaskStore(editingTask.id, taskData);
-      } else {
-        // Create new task
-        const newTask = await createTask(taskData);
-        addTask(taskData);
-      }
-    } catch (error) {
-      console.error("Failed to save task:", error);
-    }
-  };
-
-  const handleDeleteTask = async (id: number) => {
-    try {
-      await deleteTask(id);
-      deleteTaskStore(id);
-    } catch (error) {
-      console.error("Failed to delete task:", error);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingTask(null);
-  };
-
-  const userNames = users.map((user) => user.name);
+  // Pass full tag objects instead of just names
 
   if (isLoading) {
     return (
@@ -114,19 +57,69 @@ export default function Home() {
         <div className='flex items-center justify-between'>
           <div>
             <h1 className='text-2xl font-bold text-gray-900'>TaskMate</h1>
-            <p className='text-sm text-gray-600'>
-              Your personal kanban task manager
-            </p>
+            <p className='text-sm text-gray-600'>Welcome back, {user?.name}!</p>
           </div>
-          <Button
-            onClick={() => handleAddTask()}
-            className='flex items-center gap-2'
-          >
-            <Plus className='h-4 w-4' />
-            Add Task
-          </Button>
+          <div className='flex items-center gap-3'>
+            <Button
+              onClick={() => {
+                // Default to first board (backlog) for new tasks
+                const firstBoard = boards[0];
+                if (firstBoard) {
+                  handleAddTask(firstBoard.id);
+                }
+              }}
+              className='flex items-center gap-2'
+            >
+              <Plus className='h-4 w-4' />
+              Add Task
+            </Button>
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              variant='outline'
+              className='flex items-center gap-2'
+            >
+              <Filter className='h-4 w-4' />
+              Filters
+            </Button>
+            <Button
+              onClick={() => setShowCleanupPanel(!showCleanupPanel)}
+              variant='outline'
+              className='flex items-center gap-2'
+            >
+              <Settings className='h-4 w-4' />
+              Cleanup
+            </Button>
+            <Button
+              onClick={logout}
+              variant='outline'
+              className='flex items-center gap-2'
+            >
+              <LogOut className='h-4 w-4' />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
+
+      {/* Task Filters */}
+      {showFilters && (
+        <div className='bg-white border-b border-gray-200 px-6 py-4'>
+          <TaskFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            onClearFilters={clearFilters}
+            isExpanded={isFiltersExpanded}
+            onToggleExpanded={toggleFiltersExpanded}
+          />
+        </div>
+      )}
+
+      {/* Cleanup Panel */}
+      {showCleanupPanel && (
+        <div className='bg-white border-b border-gray-200 px-6 py-4'>
+          <CleanupPanel />
+        </div>
+      )}
 
       {/* Kanban Board */}
       <main>
@@ -143,9 +136,17 @@ export default function Home() {
         onClose={handleCloseModal}
         onSave={handleSaveTask}
         task={editingTask}
-        users={userNames}
+        currentUserId={user?.id || ""}
         availableTags={tags}
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ProtectedRoute>
+      <TaskMateApp />
+    </ProtectedRoute>
   );
 }

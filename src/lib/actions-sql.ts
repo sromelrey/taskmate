@@ -1,27 +1,18 @@
 "use server";
 
-import {
-  pool,
-  query,
-  withTransaction,
-  dbUtils,
-  DatabaseError,
-  ValidationError,
-  AuthorizationError,
-} from "./database";
-import { withAuth } from "./auth-middleware";
-import {
-  Task,
-  User,
-  Board,
-  Tag,
-  CreateTaskData,
-  UpdateTaskData,
+import { pool, query, withTransaction, dbUtils, DatabaseError, ValidationError, AuthorizationError } from './database';
+import { 
+  Task, 
+  User, 
+  Board, 
+  Tag, 
+  CreateTaskData, 
+  UpdateTaskData, 
   CreateTagData,
   TaskWithRelations,
   BoardWithTasks,
-  WipLimitResult,
-} from "./types";
+  WipLimitResult 
+} from './types';
 
 // =============================================
 // AUTHENTICATION HELPERS
@@ -29,31 +20,36 @@ import {
 
 async function getCurrentUser(): Promise<User | null> {
   try {
-    // This will be called from server actions that have access to the request
-    // For now, we'll use a mock user, but in production this would get the user from the session
+    // Mock user for development
+    // In production, integrate with Neon Auth
     const mockUser = {
-      id: "550e8400-e29b-41d4-a716-446655440000", // Valid UUID format
-      email: "dev@example.com",
-      name: "Development User",
-      timezone: "UTC",
+      id: 'dev-user-id',
+      email: 'dev@example.com',
+      name: 'Development User',
+      timezone: 'UTC',
       wip_limit: 1,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // Check if user exists
-    const userResult = await query("SELECT * FROM users WHERE id = $1", [
-      mockUser.id,
-    ]);
+    // Check if user exists, create if not
+    const userResult = await query(
+      'SELECT * FROM users WHERE id = $1',
+      [mockUser.id]
+    );
 
     if (userResult.rows.length === 0) {
-      throw new AuthorizationError("User not found");
+      await query(
+        `INSERT INTO users (id, email, name, timezone, wip_limit, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [mockUser.id, mockUser.email, mockUser.name, mockUser.timezone, mockUser.wip_limit, mockUser.created_at, mockUser.updated_at]
+      );
     }
 
     return mockUser;
   } catch (error) {
-    console.error("Error getting current user:", error);
-    throw new AuthorizationError("Authentication required");
+    console.error('Error getting current user:', error);
+    return null;
   }
 }
 
@@ -68,19 +64,18 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
 
     // Get default project
     const projectResult = await query(
-      "SELECT id FROM projects WHERE owner_id = $1 AND name = $2",
-      [user.id, "My Tasks"]
+      'SELECT id FROM projects WHERE owner_id = $1 AND name = $2',
+      [user.id, 'My Tasks']
     );
 
     if (projectResult.rows.length === 0) {
-      throw new AuthorizationError("Default project not found");
+      throw new AuthorizationError('Default project not found');
     }
 
     const projectId = projectResult.rows[0].id;
 
     // Get boards with tasks
-    const boardsResult = await query(
-      `
+    const boardsResult = await query(`
       SELECT 
         b.*,
         COALESCE(
@@ -123,9 +118,7 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
       WHERE b.project_id = $1
       GROUP BY b.id
       ORDER BY b.position ASC
-    `,
-      [projectId]
-    );
+    `, [projectId]);
 
     return boardsResult.rows.map((row: any) => ({
       ...row,
@@ -168,18 +161,18 @@ export async function getTasks(boardId?: string): Promise<TaskWithRelations[]> {
       LEFT JOIN tags tg ON tt.tag_id = tg.id
       WHERE t.creator_id = $1
     `;
-
+    
     const params = [user.id];
-
+    
     if (boardId) {
-      sql += " AND t.board_id = $2";
+      sql += ' AND t.board_id = $2';
       params.push(boardId);
     }
-
-    sql += " GROUP BY t.id, u.id, b.id ORDER BY t.position ASC";
+    
+    sql += ' GROUP BY t.id, u.id, b.id ORDER BY t.position ASC';
 
     const result = await query(sql, params);
-
+    
     return result.rows.map((row: any) => ({
       id: row.id,
       title: row.title,
@@ -194,23 +187,19 @@ export async function getTasks(boardId?: string): Promise<TaskWithRelations[]> {
       actual_hours: row.actual_hours,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      assignee: row.assignee_id
-        ? {
-            id: row.assignee_id,
-            name: row.assignee_name,
-            email: row.assignee_email,
-            avatar_url: row.assignee_avatar_url,
-          }
-        : undefined,
-      board: row.board_id
-        ? {
-            id: row.board_id,
-            name: row.board_name,
-            slug: row.board_slug,
-            color: row.board_color,
-            wip_limit: row.board_wip_limit,
-          }
-        : undefined,
+      assignee: row.assignee_id ? {
+        id: row.assignee_id,
+        name: row.assignee_name,
+        email: row.assignee_email,
+        avatar_url: row.assignee_avatar_url,
+      } : undefined,
+      board: row.board_id ? {
+        id: row.board_id,
+        name: row.board_name,
+        slug: row.board_slug,
+        color: row.board_color,
+        wip_limit: row.board_wip_limit,
+      } : undefined,
       tags: row.tags || [],
     }));
   } catch (error) {
@@ -218,106 +207,23 @@ export async function getTasks(boardId?: string): Promise<TaskWithRelations[]> {
   }
 }
 
-export async function getTaskById(taskId: string): Promise<TaskWithRelations> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) throw new AuthorizationError();
-
-    const sql = `
-      SELECT 
-        t.*,
-        u.id as assignee_id, u.name as assignee_name, u.email as assignee_email, u.avatar_url as assignee_avatar_url,
-        b.id as board_id, b.name as board_name, b.slug as board_slug, b.color as board_color, b.wip_limit as board_wip_limit,
-        COALESCE(
-          json_agg(
-            json_build_object(
-              'id', tg.id,
-              'name', tg.name,
-              'color', tg.color
-            )
-          ) FILTER (WHERE tg.id IS NOT NULL),
-          '[]'
-        ) as tags
-      FROM tasks t
-      LEFT JOIN users u ON t.assignee_id = u.id
-      LEFT JOIN boards b ON t.board_id = b.id
-      LEFT JOIN task_tags tt ON t.id = tt.task_id
-      LEFT JOIN tags tg ON tt.tag_id = tg.id
-      WHERE t.id = $1 AND t.creator_id = $2
-      GROUP BY t.id, u.id, b.id
-    `;
-
-    const result = await query(sql, [taskId, user.id]);
-
-    if (result.rows.length === 0) {
-      throw new AuthorizationError("Task not found or access denied");
-    }
-
-    const row = result.rows[0];
-    return {
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      board_id: row.board_id,
-      assignee_id: row.assignee_id,
-      creator_id: row.creator_id,
-      priority: row.priority,
-      due_date: row.due_date,
-      position: row.position,
-      estimated_hours: row.estimated_hours,
-      actual_hours: row.actual_hours,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      assignee: row.assignee_id
-        ? {
-            id: row.assignee_id,
-            name: row.assignee_name,
-            email: row.assignee_email,
-            avatar_url: row.assignee_avatar_url,
-            timezone: "UTC",
-            wip_limit: 1,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        : undefined,
-      board: {
-        id: row.board_id,
-        name: row.board_name,
-        slug: row.board_slug,
-        description: "",
-        project_id: "",
-        position: 0,
-        color: row.board_color,
-        wip_limit: row.board_wip_limit,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      tags: row.tags || [],
-    };
-  } catch (error) {
-    return dbUtils.handleError(error);
-  }
-}
-
-export async function createTask(
-  taskData: CreateTaskData
-): Promise<TaskWithRelations> {
+export async function createTask(taskData: CreateTaskData): Promise<TaskWithRelations> {
   try {
     const user = await getCurrentUser();
     if (!user) throw new AuthorizationError();
 
     if (!taskData.title?.trim()) {
-      throw new ValidationError("Task title is required", "title");
+      throw new ValidationError('Task title is required', 'title');
     }
 
     if (!taskData.board_id) {
-      throw new ValidationError("Board ID is required", "board_id");
+      throw new ValidationError('Board ID is required', 'board_id');
     }
 
     return await withTransaction(async (client) => {
       // Get next position
       const positionResult = await client.query(
-        "SELECT COALESCE(MAX(position), 0) + 1 as next_position FROM tasks WHERE board_id = $1",
+        'SELECT COALESCE(MAX(position), 0) + 1 as next_position FROM tasks WHERE board_id = $1',
         [taskData.board_id]
       );
       const nextPosition = positionResult.rows[0].next_position;
@@ -333,7 +239,7 @@ export async function createTask(
           taskData.board_id,
           taskData.assignee_id,
           user.id,
-          taskData.priority || "medium",
+          taskData.priority || 'medium',
           taskData.due_date,
           nextPosition,
           taskData.estimated_hours,
@@ -346,7 +252,7 @@ export async function createTask(
       if (taskData.tag_ids && taskData.tag_ids.length > 0) {
         for (const tagId of taskData.tag_ids) {
           await client.query(
-            "INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)",
+            'INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)',
             [task.id, tagId]
           );
         }
@@ -361,10 +267,7 @@ export async function createTask(
   }
 }
 
-export async function updateTask(
-  taskId: string,
-  updates: UpdateTaskData
-): Promise<TaskWithRelations> {
+export async function updateTask(taskId: string, updates: UpdateTaskData): Promise<TaskWithRelations> {
   try {
     const user = await getCurrentUser();
     if (!user) throw new AuthorizationError();
@@ -372,12 +275,12 @@ export async function updateTask(
     return await withTransaction(async (client) => {
       // Validate task ownership
       const taskResult = await client.query(
-        "SELECT * FROM tasks WHERE id = $1 AND creator_id = $2",
+        'SELECT * FROM tasks WHERE id = $1 AND creator_id = $2',
         [taskId, user.id]
       );
 
       if (taskResult.rows.length === 0) {
-        throw new AuthorizationError("Task not found or access denied");
+        throw new AuthorizationError('Task not found or access denied');
       }
 
       // Build update query
@@ -423,38 +326,34 @@ export async function updateTask(
       }
 
       if (updateFields.length === 0) {
-        throw new ValidationError("No updates provided");
+        throw new ValidationError('No updates provided');
       }
 
       updateFields.push(`updated_at = NOW()`);
       values.push(taskId);
 
       const updateResult = await client.query(
-        `UPDATE tasks SET ${updateFields.join(
-          ", "
-        )} WHERE id = $${paramCount} RETURNING *`,
+        `UPDATE tasks SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
         values
       );
 
       // Update tags if provided
       if (updates.tag_ids !== undefined) {
         // Remove existing tags
-        await client.query("DELETE FROM task_tags WHERE task_id = $1", [
-          taskId,
-        ]);
+        await client.query('DELETE FROM task_tags WHERE task_id = $1', [taskId]);
 
         // Add new tags
         for (const tagId of updates.tag_ids) {
           await client.query(
-            "INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)",
+            'INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)',
             [taskId, tagId]
           );
         }
       }
 
       // Fetch complete task with relations
-      const completeTask = await getTaskById(taskId);
-      return completeTask;
+      const completeTask = await getTasks(taskId);
+      return completeTask[0];
     });
   } catch (error) {
     return dbUtils.handleError(error);
@@ -467,23 +366,19 @@ export async function deleteTask(taskId: string): Promise<void> {
     if (!user) throw new AuthorizationError();
 
     const result = await query(
-      "DELETE FROM tasks WHERE id = $1 AND creator_id = $2",
+      'DELETE FROM tasks WHERE id = $1 AND creator_id = $2',
       [taskId, user.id]
     );
 
     if (result.rowCount === 0) {
-      throw new AuthorizationError("Task not found or access denied");
+      throw new AuthorizationError('Task not found or access denied');
     }
   } catch (error) {
     return dbUtils.handleError(error);
   }
 }
 
-export async function moveTask(
-  taskId: string,
-  boardId: string,
-  position?: number
-): Promise<TaskWithRelations> {
+export async function moveTask(taskId: string, boardId: string, position?: number): Promise<TaskWithRelations> {
   try {
     return await updateTask(taskId, {
       board_id: boardId,
@@ -505,18 +400,18 @@ export async function getTags(): Promise<Tag[]> {
 
     // Get default project
     const projectResult = await query(
-      "SELECT id FROM projects WHERE owner_id = $1 AND name = $2",
-      [user.id, "My Tasks"]
+      'SELECT id FROM projects WHERE owner_id = $1 AND name = $2',
+      [user.id, 'My Tasks']
     );
 
     if (projectResult.rows.length === 0) {
-      throw new AuthorizationError("Default project not found");
+      throw new AuthorizationError('Default project not found');
     }
 
     const projectId = projectResult.rows[0].id;
 
     const result = await query(
-      "SELECT * FROM tags WHERE project_id = $1 ORDER BY name ASC",
+      'SELECT * FROM tags WHERE project_id = $1 ORDER BY name ASC',
       [projectId]
     );
 
