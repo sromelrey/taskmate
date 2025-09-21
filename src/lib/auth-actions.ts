@@ -49,7 +49,11 @@ export async function loginUser(
     const user = result.rows[0];
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const userData = user as Record<string, unknown>;
+    const isValidPassword = await bcrypt.compare(
+      password,
+      userData.password_hash as string
+    );
     if (!isValidPassword) {
       throw new Error("Invalid email or password");
     }
@@ -57,15 +61,15 @@ export async function loginUser(
     // Create session
     const sessionId = uuidv4();
     const expires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-    sessions.set(sessionId, { userId: user.id, expires });
+    sessions.set(sessionId, { userId: userData.id as string, expires });
 
     // Return user without password
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...userWithoutPassword } = user;
+    const { password_hash, ...userWithoutPassword } = userData;
 
     return {
       success: true,
-      user: userWithoutPassword,
+      user: userWithoutPassword as unknown as User,
       sessionId: sessionId,
     };
   } catch (error) {
@@ -197,16 +201,16 @@ export async function registerUser(
       [userId]
     );
 
-    const user = userResult.rows[0];
+    const user = userResult.rows[0] as Record<string, unknown>;
 
     // Create session
     const sessionId = uuidv4();
     const expires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-    sessions.set(sessionId, { userId: user.id, expires });
+    sessions.set(sessionId, { userId: user.id as string, expires });
 
     return {
       success: true,
-      user,
+      user: user as unknown as User,
       sessionId: sessionId,
     };
   } catch (error) {
@@ -233,7 +237,7 @@ export async function getCurrentUserFromSession(
       [session.userId]
     );
 
-    return result.rows[0] || null;
+    return (result.rows[0] as User) || null;
   } catch (error) {
     console.error("Get current user error:", error);
     return null;

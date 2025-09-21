@@ -5,6 +5,7 @@ import {
   dbUtils,
   AuthorizationError,
 } from "./database";
+import { withAuth } from "./auth-middleware";
 
 // =============================================
 // CLEANUP OPERATIONS
@@ -30,7 +31,8 @@ export async function cleanupOldDoneTasks(): Promise<{
         throw new AuthorizationError("Default project not found");
       }
 
-      const projectId = projectResult.rows[0].id;
+      const projectId = (projectResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       const boardResult = await query(
         "SELECT id FROM boards WHERE project_id = $1 AND slug = $2",
@@ -41,7 +43,8 @@ export async function cleanupOldDoneTasks(): Promise<{
         throw new AuthorizationError("Done board not found");
       }
 
-      const doneBoardId = boardResult.rows[0].id;
+      const doneBoardId = (boardResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       // Find tasks that have been completed for more than 48 hours
       const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
@@ -68,7 +71,9 @@ export async function cleanupOldDoneTasks(): Promise<{
       }
 
       // Delete the tasks (CASCADE will handle task_tags)
-      const taskIds = tasksToDelete.map((task) => task.id);
+      const taskIds = tasksToDelete.map(
+        (task) => (task as Record<string, unknown>).id as string
+      );
       const placeholders = taskIds.map((_, index) => `$${index + 1}`).join(",");
 
       await query(
@@ -80,11 +85,14 @@ export async function cleanupOldDoneTasks(): Promise<{
 
       return {
         deletedCount: tasksToDelete.length,
-        deletedTasks: tasksToDelete.map((task) => ({
-          id: task.id,
-          title: task.title,
-          completed_at: task.completed_at,
-        })),
+        deletedTasks: tasksToDelete.map((task) => {
+          const taskData = task as Record<string, unknown>;
+          return {
+            id: taskData.id as string,
+            title: taskData.title as string,
+            completed_at: taskData.completed_at as string,
+          };
+        }),
       };
     } catch (error) {
       console.error("Error cleaning up old done tasks:", error);
@@ -110,7 +118,8 @@ export async function markTaskAsCompleted(taskId: string): Promise<void> {
         throw new AuthorizationError("Default project not found");
       }
 
-      const projectId = projectResult.rows[0].id;
+      const projectId = (projectResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       const boardResult = await query(
         "SELECT id FROM boards WHERE project_id = $1 AND slug = $2",
@@ -121,7 +130,8 @@ export async function markTaskAsCompleted(taskId: string): Promise<void> {
         throw new AuthorizationError("Done board not found");
       }
 
-      const doneBoardId = boardResult.rows[0].id;
+      const doneBoardId = (boardResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       // Update the task to set completed_at timestamp
       const result = await query(
@@ -193,7 +203,8 @@ export async function getCleanupStats(): Promise<{
         throw new AuthorizationError("Default project not found");
       }
 
-      const projectId = projectResult.rows[0].id;
+      const projectId = (projectResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       const boardResult = await query(
         "SELECT id FROM boards WHERE project_id = $1 AND slug = $2",
@@ -204,7 +215,8 @@ export async function getCleanupStats(): Promise<{
         throw new AuthorizationError("Done board not found");
       }
 
-      const doneBoardId = boardResult.rows[0].id;
+      const doneBoardId = (boardResult.rows[0] as Record<string, unknown>)
+        .id as string;
 
       // Find tasks that have been completed for more than 48 hours
       const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
@@ -226,20 +238,20 @@ export async function getCleanupStats(): Promise<{
         [doneBoardId, user.id, cutoffTime]
       );
 
-      const stats = statsResult.rows[0];
+      const stats = statsResult.rows[0] as Record<string, unknown>;
 
       return {
-        tasksToDelete: parseInt(stats.count) || 0,
+        tasksToDelete: parseInt(stats.count as string) || 0,
         oldestTask: stats.oldest_completed
           ? {
-              title: stats.oldest_title,
-              completed_at: stats.oldest_completed,
+              title: stats.oldest_title as string,
+              completed_at: stats.oldest_completed as string,
             }
           : null,
         newestTask: stats.newest_completed
           ? {
-              title: stats.newest_title,
-              completed_at: stats.newest_completed,
+              title: stats.newest_title as string,
+              completed_at: stats.newest_completed as string,
             }
           : null,
       };

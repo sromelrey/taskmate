@@ -69,7 +69,8 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
       throw new AuthorizationError("Default project not found");
     }
 
-    const projectId = projectResult.rows[0].id;
+    const projectId = (projectResult.rows[0] as Record<string, unknown>)
+      .id as string;
 
     // Get boards with tasks
     const boardsResult = await query(
@@ -120,11 +121,14 @@ export async function getBoards(): Promise<BoardWithTasks[]> {
       [projectId]
     );
 
-    return boardsResult.rows.map((row: Record<string, unknown>) => ({
-      ...row,
-      tasks: row.tasks || [],
-      taskCount: row.tasks?.length || 0,
-    }));
+    return boardsResult.rows.map((row: unknown) => {
+      const rowData = row as Record<string, unknown>;
+      return {
+        ...(rowData as unknown as BoardWithTasks),
+        tasks: (rowData.tasks as TaskWithRelations[]) || [],
+        taskCount: (rowData.tasks as TaskWithRelations[])?.length || 0,
+      };
+    });
   } catch (error) {
     return dbUtils.handleError(error);
   }
@@ -173,39 +177,55 @@ export async function getTasks(boardId?: string): Promise<TaskWithRelations[]> {
 
     const result = await query(sql, params);
 
-    return result.rows.map((row: Record<string, unknown>) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      board_id: row.board_id,
-      assignee_id: row.assignee_id,
-      creator_id: row.creator_id,
-      priority: row.priority,
-      due_date: row.due_date,
-      position: row.position,
-      estimated_hours: row.estimated_hours,
-      actual_hours: row.actual_hours,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      assignee: row.assignee_id
-        ? {
-            id: row.assignee_id,
-            name: row.assignee_name,
-            email: row.assignee_email,
-            avatar_url: row.assignee_avatar_url,
-          }
-        : undefined,
-      board: row.board_id
-        ? {
-            id: row.board_id,
-            name: row.board_name,
-            slug: row.board_slug,
-            color: row.board_color,
-            wip_limit: row.board_wip_limit,
-          }
-        : undefined,
-      tags: row.tags || [],
-    }));
+    return result.rows.map((row: unknown) => {
+      const rowData = row as Record<string, unknown>;
+      return {
+        id: rowData.id as string,
+        title: rowData.title as string,
+        description: rowData.description as string,
+        board_id: rowData.board_id as string,
+        assignee_id: rowData.assignee_id as string,
+        creator_id: rowData.creator_id as string,
+        priority: rowData.priority as "low" | "medium" | "high" | "urgent",
+        due_date: rowData.due_date as string,
+        position: rowData.position as number,
+        estimated_hours: rowData.estimated_hours as number,
+        actual_hours: rowData.actual_hours as number,
+        created_at: rowData.created_at as string,
+        updated_at: rowData.updated_at as string,
+        assignee: rowData.assignee_id
+          ? {
+              id: rowData.assignee_id as string,
+              name: rowData.assignee_name as string,
+              email: rowData.assignee_email as string,
+              avatar_url: rowData.assignee_avatar_url as string,
+              timezone: "UTC",
+              wip_limit: 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          : undefined,
+        board: rowData.board_id
+          ? {
+              id: rowData.board_id as string,
+              name: rowData.board_name as string,
+              slug: rowData.board_slug as
+                | "backlog"
+                | "todo"
+                | "in_progress"
+                | "done",
+              description: "",
+              project_id: "",
+              position: 0,
+              color: rowData.board_color as string,
+              wip_limit: rowData.board_wip_limit as number,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          : undefined,
+        tags: (rowData.tags as Tag[]) || [],
+      };
+    });
   } catch (error) {
     return dbUtils.handleError(error);
   }
@@ -246,27 +266,27 @@ export async function getTaskById(taskId: string): Promise<TaskWithRelations> {
       throw new AuthorizationError("Task not found or access denied");
     }
 
-    const row = result.rows[0];
+    const row = result.rows[0] as Record<string, unknown>;
     return {
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      board_id: row.board_id,
-      assignee_id: row.assignee_id,
-      creator_id: row.creator_id,
-      priority: row.priority,
-      due_date: row.due_date,
-      position: row.position,
-      estimated_hours: row.estimated_hours,
-      actual_hours: row.actual_hours,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      id: row.id as string,
+      title: row.title as string,
+      description: row.description as string,
+      board_id: row.board_id as string,
+      assignee_id: row.assignee_id as string,
+      creator_id: row.creator_id as string,
+      priority: row.priority as "low" | "medium" | "high" | "urgent",
+      due_date: row.due_date as string,
+      position: row.position as number,
+      estimated_hours: row.estimated_hours as number,
+      actual_hours: row.actual_hours as number,
+      created_at: row.created_at as string,
+      updated_at: row.updated_at as string,
       assignee: row.assignee_id
         ? {
-            id: row.assignee_id,
-            name: row.assignee_name,
-            email: row.assignee_email,
-            avatar_url: row.assignee_avatar_url,
+            id: row.assignee_id as string,
+            name: row.assignee_name as string,
+            email: row.assignee_email as string,
+            avatar_url: row.assignee_avatar_url as string,
             timezone: "UTC",
             wip_limit: 1,
             created_at: new Date().toISOString(),
@@ -274,18 +294,18 @@ export async function getTaskById(taskId: string): Promise<TaskWithRelations> {
           }
         : undefined,
       board: {
-        id: row.board_id,
-        name: row.board_name,
-        slug: row.board_slug,
+        id: row.board_id as string,
+        name: row.board_name as string,
+        slug: row.board_slug as "backlog" | "todo" | "in_progress" | "done",
         description: "",
         project_id: "",
         position: 0,
-        color: row.board_color,
-        wip_limit: row.board_wip_limit,
+        color: row.board_color as string,
+        wip_limit: row.board_wip_limit as number,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
-      tags: row.tags || [],
+      tags: (row.tags as Tag[]) || [],
     };
   } catch (error) {
     return dbUtils.handleError(error);
@@ -506,14 +526,15 @@ export async function getTags(): Promise<Tag[]> {
       throw new AuthorizationError("Default project not found");
     }
 
-    const projectId = projectResult.rows[0].id;
+    const projectId = (projectResult.rows[0] as Record<string, unknown>)
+      .id as string;
 
     const result = await query(
       "SELECT * FROM tags WHERE project_id = $1 ORDER BY name ASC",
       [projectId]
     );
 
-    return result.rows;
+    return result.rows as Tag[];
   } catch (error) {
     return dbUtils.handleError(error);
   }

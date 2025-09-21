@@ -215,6 +215,7 @@ export async function query(
 
 // Database transaction helper
 export async function withTransaction<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   operation: (client: any) => Promise<T>
 ): Promise<T> {
   const client = await pool.connect();

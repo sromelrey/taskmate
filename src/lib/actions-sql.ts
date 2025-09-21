@@ -426,7 +426,7 @@ export async function getTags(): Promise<Tag[]> {
       [projectId]
     );
 
-    return result.rows;
+    return result.rows as Tag[];
   } catch (error) {
     return dbUtils.handleError(error);
   }
